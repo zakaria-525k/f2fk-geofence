@@ -16,7 +16,7 @@ extension GeofenceEventTypeIntX on int {
         return GeofenceEventType.enter;
       case 2:
         return GeofenceEventType.exit;
-      case 3:
+      case 4:
         return GeofenceEventType.dwell;
       default:
         return GeofenceEventType.unKnown;
