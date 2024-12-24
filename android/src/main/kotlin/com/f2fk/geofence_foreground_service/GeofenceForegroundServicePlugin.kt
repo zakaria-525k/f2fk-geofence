@@ -36,8 +36,7 @@ import io.flutter.plugin.common.PluginRegistry
 
 @Suppress("DEPRECATION") // Deprecated for third party Services.
 fun <T> Context.isServiceRunning(service: Class<T>) =
-    (getSystemService(ACTIVITY_SERVICE) as ActivityManager)
-        .getRunningServices(Integer.MAX_VALUE)
+    (getSystemService(ACTIVITY_SERVICE) as ActivityManager).getRunningServices(Integer.MAX_VALUE)
         .any { it.service.className == service.name }
 
 /** GeofenceForegroundServicePlugin */
@@ -65,8 +64,7 @@ class GeofenceForegroundServicePlugin : FlutterPlugin, MethodCallHandler, Activi
 
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         channel = MethodChannel(
-            flutterPluginBinding.binaryMessenger,
-            "ps.byshy.geofence/foreground_geofence_foreground_service"
+            flutterPluginBinding.binaryMessenger, "ps.byshy.geofence/foreground_geofence_foreground_service"
         )
 
         channel.setMethodCallHandler(this)
@@ -79,8 +77,7 @@ class GeofenceForegroundServicePlugin : FlutterPlugin, MethodCallHandler, Activi
             "startGeofencingService" -> {
                 try {
                     SharedPreferenceHelper.saveCallbackDispatcherHandleKey(
-                        context,
-                        call.argument<Long>(Constants.callbackHandle)!!
+                        context, call.argument<Long>(Constants.callbackHandle)!!
                     )
 
                     serviceIntent = Intent(context, GeofenceForegroundService::class.java)
@@ -102,46 +99,37 @@ class GeofenceForegroundServicePlugin : FlutterPlugin, MethodCallHandler, Activi
                     }
 
                     serviceIntent.putExtra(
-                        activity!!.extraNameGen(Constants.isInDebugMode),
-                        isInDebugMode
+                        activity!!.extraNameGen(Constants.isInDebugMode), isInDebugMode
                     )
 
                     serviceIntent.putExtra(
-                        activity!!.extraNameGen(Constants.geofenceAction),
-                        GeofenceServiceAction.SETUP.toString()
+                        activity!!.extraNameGen(Constants.geofenceAction), GeofenceServiceAction.SETUP.toString()
                     )
 
                     serviceIntent.putExtra(
-                        activity!!.extraNameGen(Constants.appIcon),
-                        getIconResId(iconData)
+                        activity!!.extraNameGen(Constants.appIcon), getIconResId(iconData)
                     )
 
                     serviceIntent.putExtra(
-                        activity!!.extraNameGen(Constants.channelId),
-                        channelId
+                        activity!!.extraNameGen(Constants.channelId), channelId
                     )
 
                     serviceIntent.putExtra(
-                        activity!!.extraNameGen(Constants.contentTitle),
-                        contentTitle
+                        activity!!.extraNameGen(Constants.contentTitle), contentTitle
                     )
 
                     serviceIntent.putExtra(
-                        activity!!.extraNameGen(Constants.contentText),
-                        contentText
+                        activity!!.extraNameGen(Constants.contentText), contentText
                     )
 
                     serviceIntent.putExtra(
-                        activity!!.extraNameGen(Constants.serviceId),
-                        serviceId
+                        activity!!.extraNameGen(Constants.serviceId), serviceId
                     )
 
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         val channelName = "Geofence foreground service"
                         val channel = NotificationChannel(
-                            channelId,
-                            channelName,
-                            NotificationManager.IMPORTANCE_HIGH
+                            channelId, channelName, NotificationManager.IMPORTANCE_HIGH
                         )
 
                         channel.description = "A channel for receiving geofencing notifications"
@@ -190,6 +178,10 @@ class GeofenceForegroundServicePlugin : FlutterPlugin, MethodCallHandler, Activi
                 removeGeofence(listOf(zonesId), result)
             }
 
+            "removeAllGeoFences" -> {
+                removeAllGeoFences(result)
+            }
+
             else -> {
                 result.notImplemented()
             }
@@ -200,29 +192,21 @@ class GeofenceForegroundServicePlugin : FlutterPlugin, MethodCallHandler, Activi
         if (!SharedPreferenceHelper.hasCallbackHandle(context)) {
             result.error(
                 "1",
-                "You have not properly initialized the Flutter Geofence foreground service Plugin. " +
-                        "You should ensure you have called the 'startGeofencingService' function first! " +
-                        "The `callbackDispatcher` is a top level function. See example in repository.",
+                "You have not properly initialized the Flutter Geofence foreground service Plugin. " + "You should ensure you have called the 'startGeofencingService' function first! " + "The `callbackDispatcher` is a top level function. See example in repository.",
                 null
             )
             return
         }
 
-        val geofencingRequest = GeofencingRequest.Builder()
-            .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
+        val geofencingRequest = GeofencingRequest.Builder().setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
 
         val centerCoordinate: LatLng = calculateCenter(
             zone.coordinates ?: emptyList()
         )
 
-        val geofenceBuilder = Geofence.Builder()
-            .setRequestId(zone.zoneId)
-            .setCircularRegion(
-                centerCoordinate.latitude,
-                centerCoordinate.longitude,
-                zone.radius
-            )
-            .setExpirationDuration(Geofence.NEVER_EXPIRE)
+        val geofenceBuilder = Geofence.Builder().setRequestId(zone.zoneId).setCircularRegion(
+                centerCoordinate.latitude, centerCoordinate.longitude, zone.radius
+            ).setExpirationDuration(Geofence.NEVER_EXPIRE)
             .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER or Geofence.GEOFENCE_TRANSITION_EXIT or Geofence.GEOFENCE_TRANSITION_DWELL)
             .setLoiteringDelay(120000)
 
@@ -238,38 +222,31 @@ class GeofenceForegroundServicePlugin : FlutterPlugin, MethodCallHandler, Activi
         val geofenceIntent = Intent(context, GeofenceForegroundService::class.java)
 
         geofenceIntent.putExtra(
-            activity!!.extraNameGen(Constants.isInDebugMode),
-            isInDebugMode
+            activity!!.extraNameGen(Constants.isInDebugMode), isInDebugMode
         )
 
         geofenceIntent.putExtra(
-            activity!!.extraNameGen(Constants.geofenceAction),
-            GeofenceServiceAction.TRIGGER.toString()
+            activity!!.extraNameGen(Constants.geofenceAction), GeofenceServiceAction.TRIGGER.toString()
         )
 
         geofenceIntent.putExtra(
-            activity!!.extraNameGen(Constants.appIcon),
-            getIconResId(iconData)
+            activity!!.extraNameGen(Constants.appIcon), getIconResId(iconData)
         )
 
         geofenceIntent.putExtra(
-            activity!!.extraNameGen(Constants.channelId),
-            channelId
+            activity!!.extraNameGen(Constants.channelId), channelId
         )
 
         geofenceIntent.putExtra(
-            activity!!.extraNameGen(Constants.contentTitle),
-            contentTitle
+            activity!!.extraNameGen(Constants.contentTitle), contentTitle
         )
 
         geofenceIntent.putExtra(
-            activity!!.extraNameGen(Constants.contentText),
-            contentText
+            activity!!.extraNameGen(Constants.contentText), contentText
         )
 
         geofenceIntent.putExtra(
-            activity!!.extraNameGen(Constants.serviceId),
-            serviceId
+            activity!!.extraNameGen(Constants.serviceId), serviceId
         )
 
         val xId: String = System.currentTimeMillis().toString()
@@ -277,25 +254,18 @@ class GeofenceForegroundServicePlugin : FlutterPlugin, MethodCallHandler, Activi
 
         val pendingIntent: PendingIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             PendingIntent.getForegroundService(
-                context,
-                0,
-                geofenceIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+                context, 0, geofenceIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
             )
         } else {
             PendingIntent.getService(
-                context,
-                0,
-                geofenceIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+                context, 0, geofenceIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
             )
         }
 
         val geofencingClient = LocationServices.getGeofencingClient(context)
 
         if (ActivityCompat.checkSelfPermission(
-                context,
-                Manifest.permission.ACCESS_FINE_LOCATION
+                context, Manifest.permission.ACCESS_FINE_LOCATION
             ) != PackageManager.PERMISSION_GRANTED
         ) {
             // TODO: Consider calling
@@ -308,16 +278,13 @@ class GeofenceForegroundServicePlugin : FlutterPlugin, MethodCallHandler, Activi
 //            return
         }
 
-        geofencingClient.addGeofences(geofencingRequest.build(), pendingIntent)
-            .addOnSuccessListener {
+        geofencingClient.addGeofences(geofencingRequest.build(), pendingIntent).addOnSuccessListener {
                 result.success(true)
             }.addOnFailureListener { e ->
                 val stackTraceString = e.stackTraceToString()
 
                 result.error(
-                    geofenceRegisterFailure.toString(),
-                    e.message,
-                    stackTraceString
+                    geofenceRegisterFailure.toString(), e.message, stackTraceString
                 )
             }
     }
@@ -340,7 +307,30 @@ class GeofenceForegroundServicePlugin : FlutterPlugin, MethodCallHandler, Activi
         }
     }
 
-    fun removeAllGeoFences() {}
+    private fun removeAllGeoFences(result: Result) {
+        val geofencingClient = LocationServices.getGeofencingClient(context)
+
+        val geofenceIntent = Intent(context, GeofenceForegroundService::class.java)
+        val pendingIntent: PendingIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            PendingIntent.getForegroundService(
+                context, 0, geofenceIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+            )
+        } else {
+            PendingIntent.getService(
+                context, 0, geofenceIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+            )
+        }
+
+        geofencingClient.removeGeofences(pendingIntent).addOnSuccessListener {
+            result.success(true)
+        }.addOnFailureListener { e ->
+            val stackTraceString = e.stackTraceToString()
+            result.error(
+                geofenceRemoveFailure.toString(), e.message, stackTraceString
+            )
+        }
+    }
+
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         channel.setMethodCallHandler(null)
@@ -385,11 +375,9 @@ class GeofenceForegroundServicePlugin : FlutterPlugin, MethodCallHandler, Activi
 
     private fun getIconResIdFromAppInfo(): Int {
         return try {
-            val appInfo =
-                activity!!.packageManager.getApplicationInfo(
-                    activity!!.packageName,
-                    PackageManager.GET_META_DATA
-                )
+            val appInfo = activity!!.packageManager.getApplicationInfo(
+                activity!!.packageName, PackageManager.GET_META_DATA
+            )
 
             appInfo.icon
         } catch (e: PackageManager.NameNotFoundException) {
