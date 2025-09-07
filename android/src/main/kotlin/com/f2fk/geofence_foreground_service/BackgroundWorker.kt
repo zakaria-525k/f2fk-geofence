@@ -13,7 +13,7 @@ import com.google.common.util.concurrent.ListenableFuture
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.dart.DartExecutor
 import io.flutter.embedding.engine.loader.FlutterLoader
-import io.flutter.embedding.engine.plugins.shim.ShimPluginRegistry
+import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.view.FlutterCallbackInformation
@@ -96,12 +96,8 @@ class BackgroundWorker(
                 )
             }
 
-            // Backwards compatibility with v1. We register all the user's plugins.
-            GeofenceForegroundServicePlugin.pluginRegistryCallback?.registerWith(
-                ShimPluginRegistry(
-                    engine!!
-                )
-            )
+            // Plugin registration is now handled automatically by Flutter v2 embedding
+            // No manual plugin registration needed
 
             engine?.let { engine ->
                 backgroundChannel = MethodChannel(engine.dartExecutor, BACKGROUND_CHANNEL_NAME)

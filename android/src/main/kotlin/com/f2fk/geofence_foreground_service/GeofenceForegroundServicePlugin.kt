@@ -32,7 +32,6 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
-import io.flutter.plugin.common.PluginRegistry
 
 @Suppress("DEPRECATION") // Deprecated for third party Services.
 fun <T> Context.isServiceRunning(service: Class<T>) =
@@ -45,7 +44,8 @@ class GeofenceForegroundServicePlugin : FlutterPlugin, MethodCallHandler, Activi
         const val geofenceRegisterFailure: Int = 525601
         const val geofenceRemoveFailure: Int = 525602
 
-        var pluginRegistryCallback: PluginRegistry.PluginRegistrantCallback? = null
+        // Plugin registration is now handled automatically by Flutter v2 embedding
+        // No manual plugin registration needed
     }
 
     private lateinit var channel: MethodChannel
