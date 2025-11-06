@@ -1,13 +1,16 @@
 package com.f2fk.geofence_foreground_service
 
+import android.Manifest
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
 import android.os.Build
 import android.os.IBinder
 import android.os.Looper
 import android.util.Log
+import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.work.Data
 import androidx.work.ExistingWorkPolicy
@@ -39,25 +42,25 @@ class GeofenceForegroundService : Service() {
         super.onCreate()
 
         fusedLocationProviderClient =
-            LocationServices.getFusedLocationProviderClient(this)
+                LocationServices.getFusedLocationProviderClient(this)
 
         locationRequest = LocationRequest.Builder(
-            Priority.PRIORITY_HIGH_ACCURACY,
-            TimeUnit.SECONDS.toMillis(20)
+                Priority.PRIORITY_HIGH_ACCURACY,
+                TimeUnit.SECONDS.toMillis(20)
         ).apply {
             setMinUpdateDistanceMeters(100f)
             setGranularity(Granularity.GRANULARITY_PERMISSION_LEVEL)
             setWaitForAccurateLocation(true)
         }
-            .build()
+                .build()
 
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
                 super.onLocationResult(locationResult)
 
                 Log.d(
-                    "onLocationResult",
-                    "${locationResult.lastLocation?.latitude}, ${locationResult.lastLocation?.longitude}"
+                        "onLocationResult",
+                        "${locationResult.lastLocation?.latitude}, ${locationResult.lastLocation?.longitude}"
                 )
             }
         }
@@ -69,55 +72,81 @@ class GeofenceForegroundService : Service() {
 
     override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
         val geofenceAction: GeofenceServiceAction = GeofenceServiceAction.valueOf(
-            intent.getStringExtra(
-                applicationContext!!.extraNameGen(Constants.geofenceAction)
-            )!!
+                intent.getStringExtra(
+                        applicationContext!!.extraNameGen(Constants.geofenceAction)
+                )!!
         )
 
         val appIcon: Int = intent.getIntExtra(
-            applicationContext!!.extraNameGen(Constants.appIcon),
-            0
+                applicationContext!!.extraNameGen(Constants.appIcon),
+                0
         )
 
         val notificationChannelId: String = intent.getStringExtra(
-            applicationContext!!.extraNameGen(Constants.channelId)
+                applicationContext!!.extraNameGen(Constants.channelId)
         )!!
 
         val notificationContentTitle: String = intent.getStringExtra(
-            applicationContext!!.extraNameGen(Constants.contentTitle)
+                applicationContext!!.extraNameGen(Constants.contentTitle)
         )!!
 
         val notificationContentText: String = intent.getStringExtra(
-            applicationContext!!.extraNameGen(Constants.contentText)
+                applicationContext!!.extraNameGen(Constants.contentText)
         )!!
 
         val notification: NotificationCompat.Builder = NotificationCompat
-            .Builder(
-                this.baseContext,
-                notificationChannelId,
-            )
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .setSmallIcon(appIcon)
-            .setContentTitle(notificationContentTitle)
-            .setContentText(notificationContentText)
+                .Builder(
+                        this.baseContext,
+                        notificationChannelId,
+                )
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .setSmallIcon(appIcon)
+                .setContentTitle(notificationContentTitle)
+                .setContentText(notificationContentText)
 
         if (geofenceAction == GeofenceServiceAction.SETUP) {
             subscribeToLocationUpdates()
 
             val serviceId: Int = intent.getIntExtra(
-                Constants.serviceId,
-                525600
+                    Constants.serviceId,
+                    525600
             )
 
             stopForeground(STOP_FOREGROUND_DETACH)
 
             startForeground(
-                serviceId,
-                notification.build(),
-                FOREGROUND_SERVICE_TYPE_LOCATION
+                    serviceId,
+                    notification.build(),
+                    FOREGROUND_SERVICE_TYPE_LOCATION
             )
         } else if (geofenceAction == GeofenceServiceAction.TRIGGER) {
+            // --- FIX: Prevent ANR by calling startForeground immediately ---
+            val serviceId: Int = intent.getIntExtra(Constants.serviceId, 525601)
+
+            // Extract notification title and text from intent like in SETUP
+            val notificationContentTitle: String = intent.getStringExtra(
+                    applicationContext!!.extraNameGen(Constants.contentTitle)
+            ) ?: "Geofence Trigger"
+
+            val notificationContentText: String = intent.getStringExtra(
+                    applicationContext!!.extraNameGen(Constants.contentText)
+            ) ?: "Handling geofence event…"
+
+            val triggerNotification: NotificationCompat.Builder = NotificationCompat
+                    .Builder(this.baseContext, notificationChannelId)
+                    .setOngoing(true)
+                    .setOnlyAlertOnce(true)
+                    .setSmallIcon(appIcon)
+                    .setContentTitle(notificationContentTitle)
+                    .setContentText(notificationContentText)
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(serviceId, triggerNotification.build(), FOREGROUND_SERVICE_TYPE_LOCATION)
+            } else {
+                startForeground(serviceId, triggerNotification.build())
+            }
+
             handleGeofenceEvent(intent)
         }
 
@@ -127,8 +156,8 @@ class GeofenceForegroundService : Service() {
     private fun handleGeofenceEvent(intent: Intent) {
         try {
             val isInDebugMode: Boolean = intent.getBooleanExtra(
-                applicationContext!!.extraNameGen(Constants.isInDebugMode),
-                false
+                    applicationContext!!.extraNameGen(Constants.isInDebugMode),
+                    false
             )
 
             val geofencingEvent = GeofencingEvent.fromIntent(intent)
@@ -141,18 +170,18 @@ class GeofenceForegroundService : Service() {
 
                 if (zoneID != null) {
                     val oneOffTaskRequest =
-                        OneTimeWorkRequest.Builder(BackgroundWorker::class.java)
-                            .setInputData(buildTaskInputData(
-                                zoneID,
-                                isInDebugMode,
-                                geofenceTransition.toString()
-                            ))
-                            .build()
+                            OneTimeWorkRequest.Builder(BackgroundWorker::class.java)
+                                    .setInputData(buildTaskInputData(
+                                            zoneID,
+                                            isInDebugMode,
+                                            geofenceTransition.toString()
+                                    ))
+                                    .build()
 
                     this.baseContext!!.workManager().enqueueUniqueWork(
-                        Constants.bgTaskUniqueName,
-                        ExistingWorkPolicy.APPEND_OR_REPLACE,
-                        oneOffTaskRequest
+                            Constants.bgTaskUniqueName,
+                            ExistingWorkPolicy.APPEND_OR_REPLACE,
+                            oneOffTaskRequest
                     )
                 }
             }
@@ -189,18 +218,18 @@ class GeofenceForegroundService : Service() {
     }
 
     private fun buildTaskInputData(
-        zoneID: String,
-        isInDebugMode: Boolean,
-        payload: String?
+            zoneID: String,
+            isInDebugMode: Boolean,
+            payload: String?
     ): Data {
         return Data.Builder()
-            .putString(ZONE_ID, zoneID)
-            .putBoolean(IS_IN_DEBUG_MODE_KEY, isInDebugMode)
-            .apply {
-                payload?.let {
-                    putString(PAYLOAD_KEY, payload)
+                .putString(ZONE_ID, zoneID)
+                .putBoolean(IS_IN_DEBUG_MODE_KEY, isInDebugMode)
+                .apply {
+                    payload?.let {
+                        putString(PAYLOAD_KEY, payload)
+                    }
                 }
-            }
-            .build()
+                .build()
     }
 }
