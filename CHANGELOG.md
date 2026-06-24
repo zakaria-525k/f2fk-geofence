@@ -1,3 +1,13 @@
+## 2.0.0
+
+* **BREAKING (Android only)**: Remove foreground service — geofence transitions are now delivered via a `BroadcastReceiver` using the platform Geofence API
+* Fully compliant with Google Play's foreground service policy update (effective October 28, 2026) which no longer permits `FOREGROUND_SERVICE_LOCATION` for geofencing
+* Removed `FOREGROUND_SERVICE` and `FOREGROUND_SERVICE_LOCATION` permissions from the plugin
+* Removed the `GeofenceForegroundService` Android service — no `<service>` declaration needed in host app manifest
+* Fix background geofence triggers not firing until app returns to foreground — Dart callback now runs immediately from the broadcast receiver using synchronous Flutter initialization, a wake lock, and main-thread execution (no deferred WorkManager path)
+* No changes to the Dart API — fully backward compatible for consumers
+* iOS remains unchanged
+
 ## 1.1.3
 
 * Handle error responses

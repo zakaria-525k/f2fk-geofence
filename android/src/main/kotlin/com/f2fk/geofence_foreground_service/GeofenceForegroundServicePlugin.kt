@@ -2,22 +2,18 @@ package com.f2fk.geofence_foreground_service
 
 import android.Manifest
 import android.app.Activity
-import android.app.ActivityManager
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
-import android.content.Context.ACTIVITY_SERVICE
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
 import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
-import com.f2fk.geofence_foreground_service.enums.GeofenceServiceAction
 import com.f2fk.geofence_foreground_service.models.NotificationIconData
 import com.f2fk.geofence_foreground_service.models.Zone
 import com.f2fk.geofence_foreground_service.models.ZonesList
+import com.f2fk.geofence_foreground_service.utils.GeofenceDebugLog
+import com.f2fk.geofence_foreground_service.utils.GeofencePermissionHelper
 import com.f2fk.geofence_foreground_service.utils.SharedPreferenceHelper
 import com.f2fk.geofence_foreground_service.utils.calculateCenter
 import com.f2fk.geofence_foreground_service.utils.extraNameGen
@@ -33,11 +29,6 @@ import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
 
-@Suppress("DEPRECATION") // Deprecated for third party Services.
-fun <T> Context.isServiceRunning(service: Class<T>) =
-    (getSystemService(ACTIVITY_SERVICE) as ActivityManager).getRunningServices(Integer.MAX_VALUE)
-        .any { it.service.className == service.name }
-
 /** GeofenceForegroundServicePlugin */
 class GeofenceForegroundServicePlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     companion object {
@@ -50,7 +41,6 @@ class GeofenceForegroundServicePlugin : FlutterPlugin, MethodCallHandler, Activi
 
     private lateinit var channel: MethodChannel
     private lateinit var context: Context
-    private lateinit var serviceIntent: Intent
 
     private var channelId: String? = null
     private var contentTitle: String? = null
@@ -76,17 +66,22 @@ class GeofenceForegroundServicePlugin : FlutterPlugin, MethodCallHandler, Activi
         when (call.method) {
             "startGeofencingService" -> {
                 try {
+                    // No foreground service is started anymore. Geofencing relies solely on the
+                    // platform Geofence API (delivered to a BroadcastReceiver), which is compliant
+                    // with the Google Play foreground service policy and does not require
+                    // FOREGROUND_SERVICE_LOCATION. We only persist the configuration needed to
+                    // deliver triggers to the Dart `backgroundTriggerHandler`.
                     SharedPreferenceHelper.saveCallbackDispatcherHandleKey(
                         context, call.argument<Long>(Constants.callbackHandle)!!
                     )
 
-                    serviceIntent = Intent(context, GeofenceForegroundService::class.java)
+                    isInDebugMode = call.argument<Boolean>(Constants.isInDebugMode) ?: false
+                    SharedPreferenceHelper.saveIsInDebugMode(context, isInDebugMode)
 
                     channelId = call.argument<String>(Constants.channelId)
                     contentTitle = call.argument<String>(Constants.contentTitle)
                     contentText = call.argument<String>(Constants.contentText)
                     serviceId = call.argument<Int>(Constants.serviceId)
-                    isInDebugMode = call.argument<Boolean>(Constants.isInDebugMode) ?: false
 
                     val iconDataJson: Map<String, Any>? = call.argument<Map<String, Any>>(
                         Constants.iconData
@@ -98,66 +93,32 @@ class GeofenceForegroundServicePlugin : FlutterPlugin, MethodCallHandler, Activi
                         )
                     }
 
-                    serviceIntent.putExtra(
-                        activity!!.extraNameGen(Constants.isInDebugMode), isInDebugMode
+                    GeofencePermissionHelper.logPermissionSnapshot(context, "PERMISSIONS_AT_START")
+                    GeofenceDebugLog.d(
+                        "SERVICE_STARTED",
+                        "callbackRegistered=true isDebug=$isInDebugMode " +
+                            GeofenceDebugLog.contextSnapshot(context)
                     )
 
-                    serviceIntent.putExtra(
-                        activity!!.extraNameGen(Constants.geofenceAction), GeofenceServiceAction.SETUP.toString()
-                    )
-
-                    serviceIntent.putExtra(
-                        activity!!.extraNameGen(Constants.appIcon), getIconResId(iconData)
-                    )
-
-                    serviceIntent.putExtra(
-                        activity!!.extraNameGen(Constants.channelId), channelId
-                    )
-
-                    serviceIntent.putExtra(
-                        activity!!.extraNameGen(Constants.contentTitle), contentTitle
-                    )
-
-                    serviceIntent.putExtra(
-                        activity!!.extraNameGen(Constants.contentText), contentText
-                    )
-
-                    serviceIntent.putExtra(
-                        activity!!.extraNameGen(Constants.serviceId), serviceId
-                    )
-
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        val channelName = "Geofence foreground service"
-                        val channel = NotificationChannel(
-                            channelId, channelName, NotificationManager.IMPORTANCE_HIGH
-                        )
-
-                        channel.description = "A channel for receiving geofencing notifications"
-
-                        val notificationManager =
-                            activity?.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
-                        notificationManager.createNotificationChannel(channel)
-                    }
-
-                    ContextCompat.startForegroundService(context, serviceIntent)
                     result.success(true)
                 } catch (e: Exception) {
+                    GeofenceDebugLog.e("SERVICE_START_FAILED", GeofenceDebugLog.contextSnapshot(context), e)
                     result.success(false)
                 }
             }
 
             "stopGeofencingService" -> {
-                try {
-                    context.stopService(serviceIntent)
-                    result.success(true)
-                } catch (e: Exception) {
-                    result.success(false)
-                }
+                // There is no longer a foreground service to stop. Registered geofences keep
+                // working through the platform Geofence API and are removed explicitly via
+                // removeGeofence/removeAllGeoFences. Kept as a no-op for API compatibility.
+                result.success(true)
             }
 
             "isForegroundServiceRunning" -> {
-                result.success(context.isServiceRunning(GeofenceForegroundService::class.java))
+                // Maintained for API compatibility. Reflects whether geofencing has been
+                // initialized (a callback handle is registered) since there is no longer a
+                // foreground service running.
+                result.success(SharedPreferenceHelper.hasCallbackHandle(context))
             }
 
             "addGeofence" -> {
@@ -219,48 +180,7 @@ class GeofenceForegroundServicePlugin : FlutterPlugin, MethodCallHandler, Activi
 
         geofencingRequest.addGeofence(geofence)
 
-        val geofenceIntent = Intent(context, GeofenceForegroundService::class.java)
-
-        geofenceIntent.putExtra(
-            activity!!.extraNameGen(Constants.isInDebugMode), isInDebugMode
-        )
-
-        geofenceIntent.putExtra(
-            activity!!.extraNameGen(Constants.geofenceAction), GeofenceServiceAction.TRIGGER.toString()
-        )
-
-        geofenceIntent.putExtra(
-            activity!!.extraNameGen(Constants.appIcon), getIconResId(iconData)
-        )
-
-        geofenceIntent.putExtra(
-            activity!!.extraNameGen(Constants.channelId), channelId
-        )
-
-        geofenceIntent.putExtra(
-            activity!!.extraNameGen(Constants.contentTitle), contentTitle
-        )
-
-        geofenceIntent.putExtra(
-            activity!!.extraNameGen(Constants.contentText), contentText
-        )
-
-        geofenceIntent.putExtra(
-            activity!!.extraNameGen(Constants.serviceId), serviceId
-        )
-
-        val xId: String = System.currentTimeMillis().toString()
-        geofenceIntent.action = xId
-
-        val pendingIntent: PendingIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            PendingIntent.getForegroundService(
-                context, 0, geofenceIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
-            )
-        } else {
-            PendingIntent.getService(
-                context, 0, geofenceIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
-            )
-        }
+        val pendingIntent: PendingIntent = getGeofencePendingIntent()
 
         val geofencingClient = LocationServices.getGeofencingClient(context)
 
@@ -278,10 +198,28 @@ class GeofenceForegroundServicePlugin : FlutterPlugin, MethodCallHandler, Activi
 //            return
         }
 
+        GeofencePermissionHelper.logPermissionSnapshot(context, "PERMISSIONS_AT_REGISTER")
+        GeofenceDebugLog.d(
+            "GEOFENCE_REGISTER_REQUEST",
+            "zone=${zone.zoneId} lat=${centerCoordinate.latitude} lng=${centerCoordinate.longitude} " +
+                "radius=${zone.radius} responsivenessMs=${zone.notificationResponsivenessMs} " +
+                "backgroundGeofencingAllowed=${GeofencePermissionHelper.hasBackgroundLocationForGeofencing(context)} " +
+                GeofenceDebugLog.contextSnapshot(context)
+        )
+
         geofencingClient.addGeofences(geofencingRequest.build(), pendingIntent).addOnSuccessListener {
+                GeofenceDebugLog.d(
+                    "GEOFENCE_REGISTER_SUCCESS",
+                    "zone=${zone.zoneId} pendingIntentAction=${Constants.geofenceBroadcastAction}"
+                )
                 result.success(true)
             }.addOnFailureListener { e ->
                 val stackTraceString = e.stackTraceToString()
+                GeofenceDebugLog.e(
+                    "GEOFENCE_REGISTER_FAILED",
+                    "zone=${zone.zoneId} message=${e.message}",
+                    e
+                )
 
                 result.error(
                     geofenceRegisterFailure.toString(), e.message, stackTraceString
@@ -310,16 +248,7 @@ class GeofenceForegroundServicePlugin : FlutterPlugin, MethodCallHandler, Activi
     private fun removeAllGeoFences(result: Result) {
         val geofencingClient = LocationServices.getGeofencingClient(context)
 
-        val geofenceIntent = Intent(context, GeofenceForegroundService::class.java)
-        val pendingIntent: PendingIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            PendingIntent.getForegroundService(
-                context, 0, geofenceIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
-            )
-        } else {
-            PendingIntent.getService(
-                context, 0, geofenceIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
-            )
-        }
+        val pendingIntent: PendingIntent = getGeofencePendingIntent()
 
         geofencingClient.removeGeofences(pendingIntent).addOnSuccessListener {
             result.success(true)
@@ -329,6 +258,31 @@ class GeofenceForegroundServicePlugin : FlutterPlugin, MethodCallHandler, Activi
                 geofenceRemoveFailure.toString(), e.message, stackTraceString
             )
         }
+    }
+
+    /**
+     * Builds the [PendingIntent] used by the platform Geofence API to deliver transitions.
+     *
+     * The intent targets [GeofenceBroadcastReceiver] (a [android.content.BroadcastReceiver]), so no
+     * foreground service is required. A single, stable PendingIntent is shared across all
+     * registered geofences so that it can also be used to remove them.
+     */
+    private fun getGeofencePendingIntent(): PendingIntent {
+        val geofenceIntent = Intent(context, GeofenceBroadcastReceiver::class.java)
+        geofenceIntent.action = Constants.geofenceBroadcastAction
+        geofenceIntent.setPackage(context.packageName)
+
+        geofenceIntent.putExtra(
+            context.extraNameGen(Constants.isInDebugMode), isInDebugMode
+        )
+
+        val flags: Int = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+        } else {
+            PendingIntent.FLAG_UPDATE_CURRENT
+        }
+
+        return PendingIntent.getBroadcast(context, 0, geofenceIntent, flags)
     }
 
 
@@ -347,42 +301,4 @@ class GeofenceForegroundServicePlugin : FlutterPlugin, MethodCallHandler, Activi
     }
 
     override fun onDetachedFromActivity() {}
-
-    private fun getIconResId(iconData: NotificationIconData?): Int {
-        return if (iconData == null) {
-            getIconResIdFromAppInfo()
-        } else {
-            getIconResIdFromIconData(iconData)
-        }
-    }
-
-    private fun getIconResIdFromIconData(iconData: NotificationIconData): Int {
-        val resType = iconData.resType
-        val resPrefix = iconData.resPrefix
-        val name = iconData.name
-        if (resType.isEmpty() || resPrefix.isEmpty() || name.isEmpty()) {
-            return 0
-        }
-
-        val resName = if (resPrefix.contains("ic")) {
-            String.format("ic_%s", name)
-        } else {
-            String.format("img_%s", name)
-        }
-
-        return activity!!.resources.getIdentifier(resName, resType, activity!!.packageName)
-    }
-
-    private fun getIconResIdFromAppInfo(): Int {
-        return try {
-            val appInfo = activity!!.packageManager.getApplicationInfo(
-                activity!!.packageName, PackageManager.GET_META_DATA
-            )
-
-            appInfo.icon
-        } catch (e: PackageManager.NameNotFoundException) {
-            Log.e("getIconResIdFromAppInfo", "getIconResIdFromAppInfo", e)
-            0
-        }
-    }
 }

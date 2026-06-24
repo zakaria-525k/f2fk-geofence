@@ -11,9 +11,7 @@ class Constants {
         const val longitude: String = "longitude"
         const val notificationResponsivenessMs: String = "notification_responsiveness_ms"
 
-        const val geofenceAction: String = "geofence_action"
-
-        const val appIcon: String = "app_icon"
+        const val geofenceBroadcastAction: String = "com.f2fk.geofence_foreground_service.GEOFENCE_EVENT"
         const val channelId: String = "channel_id"
         const val contentTitle: String = "content_title"
         const val contentText: String = "content_text"

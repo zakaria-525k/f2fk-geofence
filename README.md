@@ -5,7 +5,7 @@
 ![Platform](https://img.shields.io/badge/platform-android-lightgrey.svg)
 ![Platform](https://img.shields.io/badge/platform-ios-lightgrey.svg)
 
-A Flutter plugin that enables you to easily handle geofencing events in your Flutter app by utilizing native OS APIs on `Android` by creating a foreground service while being battery efficient since it uses the [Geofence](https://developer.android.com/training/location/geofencing) and [WorkManager](https://developer.android.com/topic/libraries/architecture/workmanager) APIs. And on `iOS` by utilizing the [CLLocationManager](https://developer.apple.com/documentation/corelocation/cllocationmanager)
+A Flutter plugin that enables you to easily handle geofencing events in your Flutter app by utilizing native OS APIs on `Android` using the [Geofence API](https://developer.android.com/training/location/geofencing) and [WorkManager](https://developer.android.com/topic/libraries/architecture/workmanager) APIs. Geofence transitions are delivered to a `BroadcastReceiver` — **no foreground service is required**, making it fully compliant with the [Google Play foreground service policy](https://support.google.com/googleplay/android-developer/answer/13392821) effective October 28, 2026. On `iOS` it utilizes the [CLLocationManager](https://developer.apple.com/documentation/corelocation/cllocationmanager).
 
 It's important to note that the [workmanager](https://pub.dev/packages/workmanager)
 and [flutter_foreground_task](https://pub.dev/packages/flutter_foreground_task) plugins were a
@@ -17,38 +17,40 @@ Android|iOS
 
 ## Features
 
-- **Supports geofencing in foreground as well as background** 💪
-- **Geofence a circular area** 🗺️
-- **Geofence a polygon** 🤯 You can add a geofence using a list of coordinates, the system will calculate the center of them and register it, having full polygon support is a WIP 🚧
-- **Notification customization** 🔔: ⚠️**Android**⚠️ Displaying a notification when running a foreground service is mandatory, you can customize what is being displayed on it (title, content or the icon), the plugin displays your app icon by default.
-- **Notification responsiveness** ⏱️: ⚠️**Android**⚠️ You can set the responsiveness of the android notifications as per the docs [here](https://developers.google.com/android/reference/com/google/android/gms/location/Geofence.Builder#public-geofence.builder-setnotificationresponsiveness-int-notificationresponsivenessms)
+- **Supports geofencing in foreground as well as background** — triggers are delivered via the platform Geofence API whether the app is in the foreground or the background
+- **No foreground service required on Android** — fully compliant with the Google Play policy changes (Oct 2026). No `FOREGROUND_SERVICE` or `FOREGROUND_SERVICE_LOCATION` permissions needed
+- **Geofence a circular area**
+- **Geofence a polygon** — You can add a geofence using a list of coordinates, the system will calculate the center of them and register it, having full polygon support is a WIP
+- **Notification responsiveness** — **Android**: You can set the responsiveness of the android notifications as per the docs [here](https://developers.google.com/android/reference/com/google/android/gms/location/Geofence.Builder#public-geofence.builder-setnotificationresponsiveness-int-notificationresponsivenessms)
+
+## Migration from v1.x (foreground service)
+
+If you are upgrading from a version that used a foreground service:
+
+1. **Remove** the `<service>` declaration for `GeofenceForegroundService` from your `AndroidManifest.xml`
+2. **Remove** the `FOREGROUND_SERVICE` and `FOREGROUND_SERVICE_LOCATION` permissions from your `AndroidManifest.xml`
+3. No changes to your Dart code are needed — the API is fully backward compatible
 
 ## Setup
 
-### 🔧 Android Setup
+### Android Setup
 
 - Enable MultiDex, you can check how to do
   so [here](https://docs.flutter.dev/deployment/android#enabling-multidex-support)
-- Add the service to the AndroidManifest.xml inside the application tag
+- Add the required permissions to your `AndroidManifest.xml`
 
 ```xml
-<service 
-    android:name="com.f2fk.geofence_foreground_service.GeofenceForegroundService"
-    android:foregroundServiceType="location">
-</service>
-```
-- Add the permissions
-```xml
-<!--required-->
-<uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
-
-<!--at least one of the follwoing-->
+<!--at least one of the following-->
 <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+<!--required for background geofencing-->
+<uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 ```
+
 - Make sure the `minSdkVersion` in the `app/build.gradle` file is 29+
 
-### 🔧 iOS Setup
+### iOS Setup
 
 - Navigate to the Podfile and make sure to set the iOS version to 12+
 ```
@@ -138,18 +140,6 @@ Future<void> initPlatformState() async {
 > information
 > [here](https://github.com/fluttercommunity/flutter_workmanager/issues/151#issuecomment-612637579)
 
-You can pass a custom icon to the foreground service notification if you wish while initializing the
-service, this icon will be placed inside the android/app/src/main/res folder, you can check the
-example for more information, by default, it will take the app icon
-
-```dart
-const NotificationIconData(
-  resType: ResourceType.mipmap,
-  resPrefix: ResourcePrefix.ic,
-  name: 'launcher',
-)
-```
-
 ## Notes
 
 Handling permissions is not a part of the package, so please refer
@@ -163,4 +153,4 @@ permissions (it's used in the example too)
 ## Contributing Guidelines
 
 We welcome contributions from the community. If you'd like to contribute to the development of this
-plugin, please feel free to submit a PR to our GitHub repository._
+plugin, please feel free to submit a PR to our GitHub repository.
