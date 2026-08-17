@@ -28,9 +28,9 @@ abstract class GeofenceForegroundServicePlatform extends PlatformInterface {
   }
 
   Future<bool> startGeofencingService({
-    required String notificationChannelId,
-    required String contentTitle,
-    required String contentText,
+    String? notificationChannelId,
+    String? contentTitle,
+    String? contentText,
     int? serviceId,
     required Function callbackDispatcher,
     bool isInDebugMode = false,

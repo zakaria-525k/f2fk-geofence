@@ -14,17 +14,17 @@ class GeofenceForegroundService {
   /// Starts the geofencing service
   /// This method initiates a geofencing service that monitors the provided geographic areas by [addGeofenceZone].
   /// Parameters:
-  ///   - notificationChannelId (String, required): The ID of the notification channel for geofencing notifications.
-  ///   - contentTitle (String, required): The title of geofencing-related notifications.
-  ///   - contentText (String, required): The content text of geofencing-related notifications.
+  ///   - notificationChannelId (String, optional): The ID of the notification channel for geofencing notifications.
+  ///   - contentTitle (String, optional): The title of geofencing-related notifications.
+  ///   - contentText (String, optional): The content text of geofencing-related notifications.
   ///   - serviceId (int, optional): An optional ID for the geofencing service.
   ///   - notificationIconData ([NotificationIconData], optional): An optional object for specifying the icon used in the mandatory geofencing service foreground notification.
   /// Returns:
   ///   A Future<bool> that resolves to true if the service was started successfully; otherwise, false.
   Future<bool> startGeofencingService({
-    required String notificationChannelId,
-    required String contentTitle,
-    required String contentText,
+    String? notificationChannelId,
+    String? contentTitle,
+    String? contentText,
     int? serviceId,
     required Function callbackDispatcher,
     bool isInDebugMode = false,

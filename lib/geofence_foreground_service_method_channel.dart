@@ -27,9 +27,9 @@ class MethodChannelGeofenceForegroundService
   /// This method is used to start the geofencing foreground service
   @override
   Future<bool> startGeofencingService({
-    required String notificationChannelId,
-    required String contentTitle,
-    required String contentText,
+    String? notificationChannelId,
+    String? contentTitle,
+    String? contentText,
     int? serviceId,
     required Function callbackDispatcher,
     bool isInDebugMode = false,
